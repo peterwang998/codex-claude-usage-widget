@@ -13,7 +13,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "UsageWidget",
-            path: "Sources/UsageWidget"
+            path: "Sources",
+            exclude: ["UsageWidgetExtension"]
         )
     ]
 )

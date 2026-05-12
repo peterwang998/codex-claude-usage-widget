@@ -3,27 +3,39 @@ import Combine
 import Foundation
 import SwiftUI
 import WebKit
+import WidgetKit
 
-private let claudeUsageURL = URL(string: "https://claude.ai/settings/usage")!
-private let codexUsageURL = URL(string: "https://chatgpt.com/codex/cloud/settings/analytics")!
-private let codexUsagePath = "/codex/cloud/settings/analytics"
+enum DashboardURLs {
+    static let claudeUsage = URL(string: "https://claude.ai/settings/usage")!
+    static let codexUsage = URL(string: "https://chatgpt.com/codex/cloud/settings/analytics")!
+    static let codexPath = "/codex/cloud/settings/analytics"
+}
 
 enum AppLog {
     static let isDebugEnabled = ProcessInfo.processInfo.environment["AI_USAGE_WIDGET_DEBUG_LOGS"] == "1"
 
     static let url: URL = {
-        let base = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
+        let appGroupBase = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: WidgetUsageSnapshotStore.appGroupIdentifier)?
             .appendingPathComponent("Logs", isDirectory: true)
+        let fallbackBase = try? FileManager.default
+            .url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+            .appendingPathComponent("AIUsageWidget", isDirectory: true)
+            .appendingPathComponent("Logs", isDirectory: true)
+        let base = appGroupBase ?? fallbackBase ?? FileManager.default.temporaryDirectory
             .appendingPathComponent("AIUsageWidget", isDirectory: true)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base.appendingPathComponent("usage-widget.log")
     }()
 
-    private static let formatter = ISO8601DateFormatter()
-
     static func write(_ message: String) {
-        let line = "[\(formatter.string(from: Date()))] \(message)\n"
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
         guard let data = line.data(using: .utf8) else {
             return
         }
@@ -147,16 +159,19 @@ final class UsageMonitor: ObservableObject {
         codex = initialCodex
         displayMode = DisplayMode(rawValue: UserDefaults.standard.string(forKey: "displayMode") ?? "") ?? .minimal
 
-        claudePoller = DashboardPoller(service: .claude, url: claudeUsageURL)
-        codexPoller = DashboardPoller(service: .codex, url: codexUsageURL)
+        claudePoller = DashboardPoller(service: .claude, url: DashboardURLs.claudeUsage)
+        codexPoller = DashboardPoller(service: .codex, url: DashboardURLs.codexUsage)
 
         claudePoller.onSnapshot = { [weak self] snapshot in
             self?.claude = snapshot
+            self?.publishWidgetSnapshot()
         }
         codexPoller.onSnapshot = { [weak self] snapshot in
             self?.codex = snapshot
+            self?.publishWidgetSnapshot()
         }
 
+        publishWidgetSnapshot()
         claudePoller.start()
         codexPoller.start(stagger: 20)
     }
@@ -176,14 +191,14 @@ final class UsageMonitor: ObservableObject {
     }
 
     func openLoginWindow(for service: UsageService) {
-        let url = service == .claude ? claudeUsageURL : codexUsageURL
+        let url = service == .claude ? DashboardURLs.claudeUsage : DashboardURLs.codexUsage
         LoginWindowController.shared.open(service: service, url: url) { [weak self] in
             self?.refresh(service)
         }
     }
 
     func openExternalDashboard(for service: UsageService) {
-        let url = service == .claude ? claudeUsageURL : codexUsageURL
+        let url = service == .claude ? DashboardURLs.claudeUsage : DashboardURLs.codexUsage
         NSWorkspace.shared.open(url)
     }
 
@@ -197,6 +212,38 @@ final class UsageMonitor: ObservableObject {
 
     func toggleDesktopWidget() {
         DesktopWidgetWindowController.shared.toggle(monitor: self)
+    }
+
+    private func publishWidgetSnapshot() {
+        WidgetUsageSnapshotStore.write(
+            WidgetUsageData(
+                generatedAt: Date(),
+                claude: WidgetServiceData(snapshot: claude),
+                codex: WidgetServiceData(snapshot: codex)
+            )
+        )
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+}
+
+private extension WidgetServiceData {
+    init(snapshot: DashboardSnapshot) {
+        self.init(
+            id: snapshot.service.rawValue,
+            name: snapshot.service.displayName,
+            status: snapshot.status.label,
+            message: snapshot.message,
+            lastUpdated: snapshot.lastUpdated,
+            nextRefresh: snapshot.nextRefresh,
+            metrics: snapshot.metrics.map {
+                WidgetMetric(
+                    label: $0.label,
+                    value: $0.value,
+                    detail: $0.detail,
+                    percent: $0.percent
+                )
+            }
+        )
     }
 }
 
@@ -425,7 +472,7 @@ final class DashboardPoller: NSObject, WKNavigationDelegate {
               targetRedirectsRemaining > 0,
               let currentURL = webView.url,
               currentURL.host?.lowercased().contains("chatgpt.com") == true,
-              currentURL.path != codexUsagePath,
+              currentURL.path != DashboardURLs.codexPath,
               !currentURL.path.lowercased().contains("auth"),
               !currentURL.path.lowercased().contains("login")
         else {
@@ -1358,7 +1405,7 @@ final class LoginWindowController: NSObject, WKNavigationDelegate {
               (targetRedirectsByWebView[webViewID] ?? 0) > 0,
               let currentURL = webView.url,
               currentURL.host?.lowercased().contains("chatgpt.com") == true,
-              currentURL.path != codexUsagePath,
+              currentURL.path != DashboardURLs.codexPath,
               !currentURL.path.lowercased().contains("auth"),
               !currentURL.path.lowercased().contains("login")
         else {
@@ -1366,7 +1413,7 @@ final class LoginWindowController: NSObject, WKNavigationDelegate {
         }
 
         targetRedirectsByWebView[webViewID, default: 0] -= 1
-        webView.load(URLRequest(url: codexUsageURL))
+        webView.load(URLRequest(url: DashboardURLs.codexUsage))
     }
 }
 
