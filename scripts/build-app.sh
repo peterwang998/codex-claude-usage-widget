@@ -8,12 +8,18 @@ BIN_NAME="ai-usage-widget"
 EXTENSION_NAME="AIUsageWidgetExtension"
 EXTENSION_DIR="$APP_DIR/Contents/PlugIns/$EXTENSION_NAME.appex"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
-APP_ENTITLEMENTS="$ROOT/Resources/AIUsageWidgetApp.entitlements"
-EXTENSION_ENTITLEMENTS="$ROOT/Resources/AIUsageWidgetExtension.entitlements"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+APP_GROUP_ID="${APP_GROUP_ID:-${DEVELOPMENT_TEAM:-}.ai-usage-widget}"
+if [[ "$APP_GROUP_ID" == ".ai-usage-widget" ]]; then
+  APP_GROUP_ID="group.local.peter.ai-usage-widget"
+fi
+ENTITLEMENTS_DIR="$ROOT/build/entitlements"
+APP_ENTITLEMENTS="$ENTITLEMENTS_DIR/AIUsageWidgetApp.entitlements"
+EXTENSION_ENTITLEMENTS="$ENTITLEMENTS_DIR/AIUsageWidgetExtension.entitlements"
 
 cd "$ROOT"
 
-mkdir -p "$ROOT/build-bin" "$ROOT/.build-cache/clang"
+mkdir -p "$ROOT/build-bin" "$ROOT/.build-cache/clang" "$ENTITLEMENTS_DIR"
 env CLANG_MODULE_CACHE_PATH="$ROOT/.build-cache/clang" \
   swiftc \
   -parse-as-library \
@@ -70,8 +76,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
-  <key>LSUIElement</key>
-  <true/>
+  <key>AIUsageWidgetAppGroupIdentifier</key>
+  <string>$APP_GROUP_ID</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>
@@ -108,6 +114,8 @@ cat > "$EXTENSION_DIR/Contents/Info.plist" <<PLIST
   </array>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
+  <key>AIUsageWidgetAppGroupIdentifier</key>
+  <string>$APP_GROUP_ID</string>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key>
@@ -117,7 +125,39 @@ cat > "$EXTENSION_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign - --entitlements "$EXTENSION_ENTITLEMENTS" "$EXTENSION_DIR"
-codesign --force --sign - --entitlements "$APP_ENTITLEMENTS" "$APP_DIR"
+cat > "$APP_ENTITLEMENTS" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>$APP_GROUP_ID</string>
+  </array>
+</dict>
+</plist>
+PLIST
+
+cat > "$EXTENSION_ENTITLEMENTS" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>$APP_GROUP_ID</string>
+  </array>
+</dict>
+</plist>
+PLIST
+
+codesign --force --sign "$SIGN_IDENTITY" --entitlements "$EXTENSION_ENTITLEMENTS" "$EXTENSION_DIR"
+codesign --force --sign "$SIGN_IDENTITY" --entitlements "$APP_ENTITLEMENTS" "$APP_DIR"
 
 echo "$APP_DIR"

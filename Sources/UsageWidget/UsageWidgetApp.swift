@@ -59,9 +59,11 @@ enum AppLog {
     }
 }
 
-enum DisplayMode: String {
+enum DisplayMode: String, CaseIterable, Identifiable {
     case minimal
     case detailed
+
+    var id: String { rawValue }
 
     var label: String {
         switch self {
@@ -78,6 +80,41 @@ enum DisplayMode: String {
             return "Switch to detailed view"
         case .detailed:
             return "Switch to minimal view"
+        }
+    }
+}
+
+enum PercentSemantics: String, Codable {
+    case used
+    case remaining
+}
+
+enum PercentDisplayMode: String, CaseIterable, Identifiable {
+    case native
+    case used
+    case remaining
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .native:
+            return "Native"
+        case .used:
+            return "Used"
+        case .remaining:
+            return "Remaining"
+        }
+    }
+
+    var targetSemantics: PercentSemantics? {
+        switch self {
+        case .native:
+            return nil
+        case .used:
+            return .used
+        case .remaining:
+            return .remaining
         }
     }
 }
@@ -121,11 +158,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 @MainActor
 final class UsageMonitor: ObservableObject {
+    static let minimumRefreshMinutes = 5
+    static let maximumRefreshMinutes = 60
+    static let refreshMinuteStep = 5
+
     @Published private(set) var claude: DashboardSnapshot
     @Published private(set) var codex: DashboardSnapshot
     @Published var displayMode: DisplayMode {
         didSet {
             UserDefaults.standard.set(displayMode.rawValue, forKey: "displayMode")
+            publishWidgetSnapshot()
+        }
+    }
+    @Published var percentDisplayMode: PercentDisplayMode {
+        didSet {
+            UserDefaults.standard.set(percentDisplayMode.rawValue, forKey: "percentDisplayMode")
+            publishWidgetSnapshot()
+        }
+    }
+    @Published var refreshIntervalMinutes: Int {
+        didSet {
+            let clamped = Self.clampedRefreshMinutes(refreshIntervalMinutes)
+            if refreshIntervalMinutes != clamped {
+                refreshIntervalMinutes = clamped
+                return
+            }
+
+            UserDefaults.standard.set(refreshIntervalMinutes, forKey: "refreshIntervalMinutes")
+            let interval = TimeInterval(refreshIntervalMinutes * 60)
+            claudePoller.updateRefreshInterval(interval)
+            codexPoller.updateRefreshInterval(interval)
+        }
+    }
+    @Published var settingsVisible = false {
+        didSet {
+            UserDefaults.standard.set(settingsVisible, forKey: "settingsVisible")
         }
     }
 
@@ -138,7 +205,7 @@ final class UsageMonitor: ObservableObject {
             return "AI Usage"
         }
 
-        let pieces = [claude.shortBadge, codex.shortBadge].compactMap { $0 }
+        let pieces = [shortBadge(for: claude), shortBadge(for: codex)].compactMap { $0 }
         return pieces.isEmpty ? "AI Usage" : pieces.joined(separator: " / ")
     }
 
@@ -158,9 +225,14 @@ final class UsageMonitor: ObservableObject {
         claude = initialClaude
         codex = initialCodex
         displayMode = DisplayMode(rawValue: UserDefaults.standard.string(forKey: "displayMode") ?? "") ?? .minimal
+        percentDisplayMode = PercentDisplayMode(rawValue: UserDefaults.standard.string(forKey: "percentDisplayMode") ?? "") ?? .remaining
+        let storedRefreshIntervalMinutes = Self.clampedRefreshMinutes(UserDefaults.standard.integer(forKey: "refreshIntervalMinutes"))
+        refreshIntervalMinutes = storedRefreshIntervalMinutes
+        settingsVisible = UserDefaults.standard.bool(forKey: "settingsVisible")
 
-        claudePoller = DashboardPoller(service: .claude, url: DashboardURLs.claudeUsage)
-        codexPoller = DashboardPoller(service: .codex, url: DashboardURLs.codexUsage)
+        let refreshInterval = TimeInterval(storedRefreshIntervalMinutes * 60)
+        claudePoller = DashboardPoller(service: .claude, url: DashboardURLs.claudeUsage, refreshInterval: refreshInterval)
+        codexPoller = DashboardPoller(service: .codex, url: DashboardURLs.codexUsage, refreshInterval: refreshInterval)
 
         claudePoller.onSnapshot = { [weak self] snapshot in
             self?.claude = snapshot
@@ -210,24 +282,48 @@ final class UsageMonitor: ObservableObject {
         displayMode = displayMode == .minimal ? .detailed : .minimal
     }
 
+    func toggleSettings() {
+        settingsVisible.toggle()
+    }
+
     func toggleDesktopWidget() {
         DesktopWidgetWindowController.shared.toggle(monitor: self)
+    }
+
+    private func shortBadge(for snapshot: DashboardSnapshot) -> String? {
+        guard snapshot.status == .ready || snapshot.status == .noUsageFound else {
+            return nil
+        }
+        if let metric = snapshot.metrics.first?.presented(as: percentDisplayMode) {
+            if let percent = metric.percent {
+                return "\(snapshot.service.displayName) \(Int(percent.rounded()))%"
+            }
+            return "\(snapshot.service.displayName) \(metric.value)"
+        }
+        return nil
     }
 
     private func publishWidgetSnapshot() {
         WidgetUsageSnapshotStore.write(
             WidgetUsageData(
                 generatedAt: Date(),
-                claude: WidgetServiceData(snapshot: claude),
-                codex: WidgetServiceData(snapshot: codex)
+                claude: WidgetServiceData(snapshot: claude, percentDisplayMode: percentDisplayMode),
+                codex: WidgetServiceData(snapshot: codex, percentDisplayMode: percentDisplayMode)
             )
         )
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    private static func clampedRefreshMinutes(_ value: Int) -> Int {
+        let defaultMinutes = 10
+        let minutes = value == 0 ? defaultMinutes : value
+        let stepped = (Double(minutes) / Double(refreshMinuteStep)).rounded() * Double(refreshMinuteStep)
+        return Int(stepped).clamped(to: minimumRefreshMinutes...maximumRefreshMinutes)
+    }
 }
 
 private extension WidgetServiceData {
-    init(snapshot: DashboardSnapshot) {
+    init(snapshot: DashboardSnapshot, percentDisplayMode: PercentDisplayMode) {
         self.init(
             id: snapshot.service.rawValue,
             name: snapshot.service.displayName,
@@ -236,11 +332,12 @@ private extension WidgetServiceData {
             lastUpdated: snapshot.lastUpdated,
             nextRefresh: snapshot.nextRefresh,
             metrics: snapshot.metrics.map {
-                WidgetMetric(
-                    label: $0.label,
-                    value: $0.value,
-                    detail: $0.detail,
-                    percent: $0.percent
+                let metric = $0.presented(as: percentDisplayMode)
+                return WidgetMetric(
+                    label: metric.label,
+                    value: metric.value,
+                    detail: metric.detail,
+                    percent: metric.percent
                 )
             }
         )
@@ -322,6 +419,32 @@ struct UsageMetric: Identifiable, Equatable {
     var value: String
     var detail: String?
     var percent: Double?
+    var percentSemantics: PercentSemantics?
+}
+
+private extension UsageMetric {
+    func presented(as mode: PercentDisplayMode) -> UsageMetric {
+        guard let targetSemantics = mode.targetSemantics,
+              let percent,
+              let percentSemantics
+        else {
+            return self
+        }
+
+        let displayPercent = percentSemantics == targetSemantics ? percent : 100 - percent
+        var metric = self
+        metric.percent = displayPercent.clamped(to: 0...100)
+        metric.percentSemantics = targetSemantics
+        metric.value = "\(formatPercentDisplay(displayPercent)) \(targetSemantics.rawValue)"
+        return metric
+    }
+}
+
+private func formatPercentDisplay(_ percent: Double) -> String {
+    if percent.rounded() == percent {
+        return "\(Int(percent))%"
+    }
+    return String(format: "%.1f%%", percent)
 }
 
 struct DashboardSnapshot: Equatable {
@@ -365,15 +488,16 @@ final class DashboardPoller: NSObject, WKNavigationDelegate {
     private var timer: Timer?
     private var retryTimer: Timer?
 
-    private let normalRefreshInterval: TimeInterval = 10 * 60
+    private var normalRefreshInterval: TimeInterval
     private let minimumManualRefreshInterval: TimeInterval = 60
     private let errorRetryInterval: TimeInterval = 20 * 60
     private var lastManualRefresh: Date?
     private var targetRedirectsRemaining = 2
 
-    init(service: UsageService, url: URL) {
+    init(service: UsageService, url: URL, refreshInterval: TimeInterval) {
         self.service = service
         self.url = url
+        self.normalRefreshInterval = refreshInterval
         snapshot = DashboardSnapshot(service: service)
 
         let configuration = WKWebViewConfiguration()
@@ -393,6 +517,14 @@ final class DashboardPoller: NSObject, WKNavigationDelegate {
             }
             refresh(reason: .timer)
         }
+    }
+
+    func updateRefreshInterval(_ interval: TimeInterval) {
+        normalRefreshInterval = interval
+        scheduleTimer()
+        snapshot.nextRefresh = Date().addingTimeInterval(normalRefreshInterval)
+        onSnapshot?(snapshot)
+        AppLog.write("\(service.displayName) refresh interval updated to \(Int(interval / 60)) minutes")
     }
 
     func refresh(reason: RefreshReason) {
@@ -701,6 +833,7 @@ enum UsageParser {
 
     private static func parseProgress(_ nodes: [PagePayload.ProgressNode], service: UsageService) -> [UsageMetric] {
         nodes.compactMap { node in
+            let rawText = [node.ariaLabel, node.title, node.text].joined(separator: " ")
             let rawLabel = [node.ariaLabel, node.title, node.text]
                 .map { clean($0) }
                 .first { !$0.isEmpty } ?? "Usage"
@@ -716,7 +849,13 @@ enum UsageParser {
                 return nil
             }
 
-            return UsageMetric(label: label, value: value, detail: nil, percent: percent)
+            return UsageMetric(
+                label: label,
+                value: value,
+                detail: nil,
+                percent: percent,
+                percentSemantics: percentSemantics(in: rawText)
+            )
         }
     }
 
@@ -734,7 +873,8 @@ enum UsageParser {
                         label: "Claude current session",
                         value: valueLine,
                         detail: detail.isEmpty ? nil : detail,
-                        percent: firstPercent(in: valueLine)
+                        percent: firstPercent(in: valueLine),
+                        percentSemantics: percentSemantics(in: valueLine, default: .used)
                     )
                 )
             } else {
@@ -743,7 +883,8 @@ enum UsageParser {
                         label: "Claude current session",
                         value: "Starts when a message is sent",
                         detail: detail.isEmpty ? nil : detail,
-                        percent: nil
+                        percent: nil,
+                        percentSemantics: nil
                     )
                 )
             }
@@ -758,7 +899,8 @@ enum UsageParser {
                         label: "Claude weekly usage limit",
                         value: valueLine,
                         detail: reset,
-                        percent: firstPercent(in: valueLine)
+                        percent: firstPercent(in: valueLine),
+                        percentSemantics: percentSemantics(in: valueLine, default: .used)
                     )
                 )
             } else if let reset {
@@ -767,7 +909,8 @@ enum UsageParser {
                         label: "Claude weekly usage limit",
                         value: reset.replacingOccurrences(of: "Resets in ", with: "Resets in "),
                         detail: nil,
-                        percent: nil
+                        percent: nil,
+                        percentSemantics: nil
                     )
                 )
             }
@@ -781,7 +924,8 @@ enum UsageParser {
                         label: "Claude Design",
                         value: valueLine,
                         detail: detail,
-                        percent: firstPercent(in: valueLine)
+                        percent: firstPercent(in: valueLine),
+                        percentSemantics: percentSemantics(in: valueLine, default: .used)
                     )
                 )
             }
@@ -795,7 +939,8 @@ enum UsageParser {
                         label: "Claude daily routine runs",
                         value: valueLine,
                         detail: detail,
-                        percent: fractionPercent(in: valueLine)
+                        percent: fractionPercent(in: valueLine),
+                        percentSemantics: .used
                     )
                 )
             }
@@ -812,7 +957,8 @@ enum UsageParser {
                         label: "Claude extra usage",
                         value: valueLine,
                         detail: detail.isEmpty ? nil : detail,
-                        percent: percentLine.flatMap(firstPercent)
+                        percent: percentLine.flatMap(firstPercent),
+                        percentSemantics: percentLine.flatMap { percentSemantics(in: $0, default: .used) }
                     )
                 )
             }
@@ -994,7 +1140,8 @@ enum UsageParser {
                         label: label,
                         value: "\(formatPercent(percent)) remaining",
                         detail: detail,
-                        percent: percent
+                        percent: percent,
+                        percentSemantics: .remaining
                     )
                 )
                 continue
@@ -1147,7 +1294,15 @@ enum UsageParser {
 
             let label = labelFrom(line: line, service: service)
             let detail = neighboringDetail(index: index, lines: lines)
-            result.append(UsageMetric(label: label, value: value, detail: detail, percent: firstPercent(in: line)))
+            result.append(
+                UsageMetric(
+                    label: label,
+                    value: value,
+                    detail: detail,
+                    percent: firstPercent(in: [line, value].joined(separator: " ")),
+                    percentSemantics: percentSemantics(in: [line, value, detail ?? ""].joined(separator: " "))
+                )
+            )
         }
 
         return result
@@ -1316,6 +1471,17 @@ enum UsageParser {
         }
 
         return result
+    }
+
+    private static func percentSemantics(in text: String, default defaultSemantics: PercentSemantics? = nil) -> PercentSemantics? {
+        let lowered = text.lowercased()
+        if lowered.contains("remaining") || lowered.contains("left") || lowered.contains("available") {
+            return .remaining
+        }
+        if lowered.contains("used") || lowered.contains("usage") || lowered.contains("spent") || lowered.contains("consumed") {
+            return .used
+        }
+        return defaultSemantics
     }
 
     private static func firstPercent(in text: String) -> Double? {
@@ -1533,6 +1699,9 @@ struct DashboardView: View {
     var body: some View {
         VStack(spacing: 12) {
             header
+            if monitor.settingsVisible {
+                SettingsPanel(monitor: monitor)
+            }
             ServiceCard(snapshot: monitor.claude, monitor: monitor)
             ServiceCard(snapshot: monitor.codex, monitor: monitor)
             footer
@@ -1568,6 +1737,14 @@ struct DashboardView: View {
             .help("Toggle desktop widget")
 
             Button {
+                monitor.toggleSettings()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help("Settings")
+
+            Button {
                 monitor.toggleDisplayMode()
             } label: {
                 Image(systemName: monitor.displayMode == .minimal ? "list.bullet.rectangle" : "rectangle.grid.2x2")
@@ -1581,7 +1758,8 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text("\(monitor.displayMode.label) view")
-                Text("Auto-refresh: 10 min")
+                Text("Auto-refresh: \(monitor.refreshIntervalMinutes) min")
+                Text("Percent: \(monitor.percentDisplayMode.label)")
                 Spacer()
                 Button {
                     monitor.openLogFile()
@@ -1599,6 +1777,56 @@ struct DashboardView: View {
         .padding(.top, 2)
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
+    }
+}
+
+struct SettingsPanel: View {
+    @ObservedObject var monitor: UsageMonitor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Settings", systemImage: "gearshape")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+            }
+
+            HStack {
+                Text("Auto-refresh")
+                Spacer()
+                Stepper(
+                    value: $monitor.refreshIntervalMinutes,
+                    in: UsageMonitor.minimumRefreshMinutes...UsageMonitor.maximumRefreshMinutes,
+                    step: UsageMonitor.refreshMinuteStep
+                ) {
+                    Text("\(monitor.refreshIntervalMinutes) min")
+                        .monospacedDigit()
+                }
+                .frame(width: 145)
+            }
+
+            Picker("View", selection: $monitor.displayMode) {
+                ForEach(DisplayMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Percent display", selection: $monitor.percentDisplayMode) {
+                ForEach(PercentDisplayMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .font(.caption)
+        .padding(12)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08))
+        }
     }
 }
 
@@ -1681,25 +1909,28 @@ struct ServiceCard: View {
     }
 
     private var visibleMetrics: [UsageMetric] {
-        guard monitor.displayMode == .minimal else {
-            return snapshot.metrics
-        }
+        let metrics: [UsageMetric]
+        if monitor.displayMode == .minimal {
+            let primary = snapshot.metrics.filter { metric in
+                let label = metric.label.lowercased()
 
-        let primary = snapshot.metrics.filter { metric in
-            let label = metric.label.lowercased()
-
-            switch snapshot.service {
-            case .claude:
-                return label == "claude current session" || label == "claude weekly usage limit"
-            case .codex:
-                guard !label.contains("gpt-") else {
-                    return false
+                switch snapshot.service {
+                case .claude:
+                    return label == "claude current session" || label == "claude weekly usage limit"
+                case .codex:
+                    guard !label.contains("gpt-") else {
+                        return false
+                    }
+                    return label.contains("5-hour") || label.contains("5 hour") || label.contains("weekly")
                 }
-                return label.contains("5-hour") || label.contains("5 hour") || label.contains("weekly")
             }
+
+            metrics = primary.isEmpty ? Array(snapshot.metrics.prefix(2)) : primary
+        } else {
+            metrics = snapshot.metrics
         }
 
-        return primary.isEmpty ? Array(snapshot.metrics.prefix(2)) : primary
+        return metrics.map { $0.presented(as: monitor.percentDisplayMode) }
     }
 
     private var emptyState: some View {

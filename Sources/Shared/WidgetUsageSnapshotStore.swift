@@ -46,7 +46,11 @@ struct WidgetUsageData: Codable, Hashable {
 }
 
 enum WidgetUsageSnapshotStore {
-    static let appGroupIdentifier = "group.local.peter.ai-usage-widget"
+    static var appGroupIdentifier: String {
+        Bundle.main.object(forInfoDictionaryKey: "AIUsageWidgetAppGroupIdentifier") as? String
+            ?? "group.local.peter.ai-usage-widget"
+    }
+
     private static let fileName = "usage-widget-snapshot.json"
 
     static var snapshotURL: URL? {
