@@ -1,0 +1,31 @@
+.DS_Store
+
+# Build artifacts
+.build/
+.build-cache/
+build/
+build-bin/
+DerivedData/
+
+# Xcode/editor local state
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+.vscode/
+.idea/
+
+# Local environment and credentials
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+*.key
+*.crt
+*.cer
+credentials.json
+secrets.json
+
+# Local logs
+*.log
+Logs/
