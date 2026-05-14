@@ -5,7 +5,7 @@ permalink: /privacy/
 
 # Privacy Policy for AI Usage Widget
 
-Effective date: May 13, 2026
+Effective date: May 14, 2026
 
 AI Usage Widget is designed to run locally on your Mac. The app does not operate a server and does not collect personal information from users.
 
