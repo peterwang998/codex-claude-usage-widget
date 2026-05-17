@@ -19,7 +19,7 @@ Confirm these identifiers before creating the App Store Connect app record. Bund
 
 - Xcode build settings can now accept app, extension, and app-group identifiers from build settings.
 - `scripts/archive-app-store.sh` archives a Release build with App Store-style defaults.
-- App Store archive builds hide the in-app Buy Me a Coffee link by default.
+- App Store archive builds include the About-only Buy Me a Coffee link by default, with conservative optional-tip wording.
 - `APP_REVIEW_NOTES.md` contains reviewer notes for privacy, login flow, affiliation, and optional-tip handling.
 - Public privacy policy and project page are already in `docs/`.
 
@@ -51,16 +51,16 @@ The script defaults to:
 APP_BUNDLE_ID=com.peterwang.aiusagewidget
 EXTENSION_BUNDLE_ID=com.peterwang.aiusagewidget.widget
 APP_GROUP_ID=group.com.peterwang.aiusagewidget
-AI_USAGE_WIDGET_SHOW_TIP_LINK=0
+AI_USAGE_WIDGET_SHOW_TIP_LINK=1
 ```
 
-To submit with the optional Buy Me a Coffee link visible in the in-app About section:
+The optional Buy Me a Coffee link appears only in the in-app About section. The app shows this disclaimer near the link: `AI Usage Widget is free. Optional tips do not unlock features, content, updates, support priority, or any other benefit.`
+
+If Apple rejects the external optional-tip link, resubmit with it hidden:
 
 ```sh
-AI_USAGE_WIDGET_SHOW_TIP_LINK=1 DEVELOPMENT_TEAM=TEAMID ./scripts/archive-app-store.sh
+AI_USAGE_WIDGET_SHOW_TIP_LINK=0 DEVELOPMENT_TEAM=TEAMID ./scripts/archive-app-store.sh
 ```
-
-The safer first submission is `AI_USAGE_WIDGET_SHOW_TIP_LINK=0`.
 
 ## App Store Connect Metadata
 
