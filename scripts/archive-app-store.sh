@@ -8,7 +8,7 @@ DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.peterwang.aiusagewidget}"
 EXTENSION_BUNDLE_ID="${EXTENSION_BUNDLE_ID:-$APP_BUNDLE_ID.widget}"
 APP_GROUP_ID="${APP_GROUP_ID:-group.$APP_BUNDLE_ID}"
-SIGN_IDENTITY="${SIGN_IDENTITY:-Apple Distribution}"
+SIGN_IDENTITY="${SIGN_IDENTITY:-}"
 SHOW_TIP_LINK="${AI_USAGE_WIDGET_SHOW_TIP_LINK:-0}"
 
 if [[ -z "$DEVELOPMENT_TEAM" ]]; then
@@ -34,9 +34,7 @@ echo "  App bundle ID:       $APP_BUNDLE_ID"
 echo "  Extension bundle ID: $EXTENSION_BUNDLE_ID"
 echo "  App group ID:        $APP_GROUP_ID"
 echo "  Tip link enabled:    $SHOW_TIP_LINK"
-echo "  Archive path:        $ARCHIVE_PATH"
-
-xcodebuild \
+xcodebuild_args=(
   -project "$ROOT/AIUsageWidget.xcodeproj" \
   -scheme AIUsageWidget \
   -configuration "$CONFIGURATION" \
@@ -49,8 +47,15 @@ xcodebuild \
   AI_USAGE_WIDGET_APP_GROUP_ID="$APP_GROUP_ID" \
   AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG="$TIP_LINK_SWIFT_FLAG" \
   CODE_SIGN_STYLE=Automatic \
-  CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
-  CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES \
-  archive
+  CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+)
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+  xcodebuild_args+=(CODE_SIGN_IDENTITY="$SIGN_IDENTITY")
+fi
+
+echo "  Archive path:        $ARCHIVE_PATH"
+
+xcodebuild "${xcodebuild_args[@]}" archive
 
 echo "$ARCHIVE_PATH"
