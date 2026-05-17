@@ -19,7 +19,7 @@ fi
 
 if [[ -z "$DEVELOPMENT_TEAM" && "$SIGNING_MODE" == "automatic" ]]; then
   echo "DEVELOPMENT_TEAM is required for automatic WidgetKit signing." >&2
-  echo "Example: DEVELOPMENT_TEAM=7D8UB2NWME ./scripts/build-xcode-app.sh" >&2
+  echo "Example: DEVELOPMENT_TEAM=TEAMID ./scripts/build-xcode-app.sh" >&2
   exit 1
 fi
 
