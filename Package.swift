@@ -14,7 +14,10 @@ let package = Package(
         .executableTarget(
             name: "UsageWidget",
             path: "Sources",
-            exclude: ["UsageWidgetExtension"]
+            exclude: ["UsageWidgetExtension"],
+            swiftSettings: [
+                .define("AI_USAGE_WIDGET_SHOW_TIP_LINK")
+            ]
         )
     ]
 )

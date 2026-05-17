@@ -11,6 +11,28 @@ enum DashboardURLs {
     static let codexPath = "/codex/cloud/settings/analytics"
 }
 
+enum AppLinks {
+    static let privacyPolicy = URL(string: "https://peterwang998.github.io/codex-claude-usage-widget/privacy/")!
+    static let sourceRepository = URL(string: "https://github.com/peterwang998/codex-claude-usage-widget")!
+    static let buyMeACoffee = URL(string: "https://buymeacoffee.com/peterwang")!
+}
+
+enum AppInfo {
+    static var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+
+        switch (version, build) {
+        case let (version?, build?) where !version.isEmpty && !build.isEmpty:
+            return "Version \(version) (\(build))"
+        case let (version?, _) where !version.isEmpty:
+            return "Version \(version)"
+        default:
+            return "Version unavailable"
+        }
+    }
+}
+
 enum AppLog {
     static let isDebugEnabled = ProcessInfo.processInfo.environment["AI_USAGE_WIDGET_DEBUG_LOGS"] == "1"
 
@@ -272,6 +294,18 @@ final class UsageMonitor: ObservableObject {
     func openExternalDashboard(for service: UsageService) {
         let url = service == .claude ? DashboardURLs.claudeUsage : DashboardURLs.codexUsage
         NSWorkspace.shared.open(url)
+    }
+
+    func openPrivacyPolicy() {
+        NSWorkspace.shared.open(AppLinks.privacyPolicy)
+    }
+
+    func openSourceRepository() {
+        NSWorkspace.shared.open(AppLinks.sourceRepository)
+    }
+
+    func openBuyMeACoffeePage() {
+        NSWorkspace.shared.open(AppLinks.buyMeACoffee)
     }
 
     func openLogFile() {
@@ -1818,6 +1852,10 @@ struct SettingsPanel: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            Divider()
+
+            AboutPanel(monitor: monitor)
         }
         .font(.caption)
         .padding(12)
@@ -1826,6 +1864,57 @@ struct SettingsPanel: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color.primary.opacity(0.08))
+        }
+    }
+}
+
+struct AboutPanel: View {
+    @ObservedObject var monitor: UsageMonitor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("About", systemImage: "info.circle")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Text(AppInfo.versionText)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("AI Usage Widget is not affiliated with Anthropic or OpenAI.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            #if AI_USAGE_WIDGET_SHOW_TIP_LINK
+            Text("AI Usage Widget is free. Optional tips do not unlock features, content, updates, support priority, or any other benefit.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            #endif
+
+            HStack(spacing: 10) {
+                Button {
+                    monitor.openPrivacyPolicy()
+                } label: {
+                    Label("Privacy", systemImage: "hand.raised")
+                }
+
+                Button {
+                    monitor.openSourceRepository()
+                } label: {
+                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+
+                #if AI_USAGE_WIDGET_SHOW_TIP_LINK
+                Button {
+                    monitor.openBuyMeACoffeePage()
+                } label: {
+                    Label("Buy Me a Coffee", systemImage: "heart")
+                }
+                #endif
+
+                Spacer()
+            }
+            .buttonStyle(.borderless)
         }
     }
 }

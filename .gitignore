@@ -6,6 +6,7 @@
 build/
 build-bin/
 DerivedData/
+Resources/AppIcon.iconset/
 
 # Xcode/editor local state
 *.xcuserstate

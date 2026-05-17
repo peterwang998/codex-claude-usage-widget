@@ -9,9 +9,16 @@ EXTENSION_NAME="AIUsageWidgetExtension"
 EXTENSION_DIR="$APP_DIR/Contents/PlugIns/$EXTENSION_NAME.appex"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+APP_BUNDLE_ID="${APP_BUNDLE_ID:-local.peter.ai-usage-widget}"
+EXTENSION_BUNDLE_ID="${EXTENSION_BUNDLE_ID:-$APP_BUNDLE_ID.widget}"
 APP_GROUP_ID="${APP_GROUP_ID:-${DEVELOPMENT_TEAM:-}.ai-usage-widget}"
 if [[ "$APP_GROUP_ID" == ".ai-usage-widget" ]]; then
   APP_GROUP_ID="group.local.peter.ai-usage-widget"
+fi
+TIP_SWIFT_FLAGS=()
+SHOW_TIP_LINK="${AI_USAGE_WIDGET_SHOW_TIP_LINK:-${AI_USAGE_WIDGET_SHOW_SUPPORT_LINK:-1}}"
+if [[ "$SHOW_TIP_LINK" != "0" ]]; then
+  TIP_SWIFT_FLAGS=(-D AI_USAGE_WIDGET_SHOW_TIP_LINK)
 fi
 ENTITLEMENTS_DIR="$ROOT/build/entitlements"
 APP_ENTITLEMENTS="$ENTITLEMENTS_DIR/AIUsageWidgetApp.entitlements"
@@ -30,6 +37,7 @@ env CLANG_MODULE_CACHE_PATH="$ROOT/.build-cache/clang" \
   -framework AppKit \
   -framework Combine \
   -framework WidgetKit \
+  ${TIP_SWIFT_FLAGS[@]+"${TIP_SWIFT_FLAGS[@]}"} \
   -o "$ROOT/build-bin/$BIN_NAME" \
   "$ROOT/Sources/Shared/WidgetUsageSnapshotStore.swift" \
   "$ROOT/Sources/UsageWidget/UsageWidgetApp.swift"
@@ -47,10 +55,14 @@ env CLANG_MODULE_CACHE_PATH="$ROOT/.build-cache/clang" \
   "$ROOT/Sources/UsageWidgetExtension/AIUsageWidgetExtension.swift"
 
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$EXTENSION_DIR/Contents/MacOS"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$EXTENSION_DIR/Contents/MacOS"
 
 cp "$ROOT/build-bin/$BIN_NAME" "$APP_DIR/Contents/MacOS/$BIN_NAME"
 chmod +x "$APP_DIR/Contents/MacOS/$BIN_NAME"
+
+if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
+  cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+fi
 
 cp "$ROOT/build-bin/$EXTENSION_NAME" "$EXTENSION_DIR/Contents/MacOS/$EXTENSION_NAME"
 chmod +x "$EXTENSION_DIR/Contents/MacOS/$EXTENSION_NAME"
@@ -63,7 +75,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$BIN_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>local.peter.ai-usage-widget</string>
+  <string>$APP_BUNDLE_ID</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
@@ -76,6 +90,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
+  <key>LSUIElement</key>
+  <true/>
   <key>AIUsageWidgetAppGroupIdentifier</key>
   <string>$APP_GROUP_ID</string>
   <key>NSAppTransportSecurity</key>
@@ -95,7 +111,7 @@ cat > "$EXTENSION_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$EXTENSION_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>local.peter.ai-usage-widget.widget</string>
+  <string>$EXTENSION_BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$EXTENSION_NAME</string>
   <key>CFBundleDisplayName</key>

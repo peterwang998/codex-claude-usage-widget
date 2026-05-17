@@ -55,6 +55,13 @@ struct AIUsageWidgetView: View {
             case .systemSmall:
                 CompactServiceView(service: entry.usage.claude)
                 CompactServiceView(service: entry.usage.codex)
+            case .systemMedium:
+                HStack(alignment: .top, spacing: 14) {
+                    ServiceWidgetSection(service: entry.usage.claude)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    ServiceWidgetSection(service: entry.usage.codex)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
             default:
                 ServiceWidgetSection(service: entry.usage.claude)
                 ServiceWidgetSection(service: entry.usage.codex)
@@ -62,6 +69,8 @@ struct AIUsageWidgetView: View {
 
             Spacer(minLength: 0)
         }
+        .padding(contentPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .containerBackground(.fill.tertiary, for: .widget)
     }
 
@@ -71,10 +80,24 @@ struct AIUsageWidgetView: View {
                 .font(.caption.weight(.semibold))
             Text("AI Usage")
                 .font(.caption.weight(.semibold))
+                .lineLimit(1)
             Spacer()
             Text(updatedText)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+    }
+
+    private var contentPadding: EdgeInsets {
+        switch family {
+        case .systemSmall:
+            EdgeInsets(top: 15, leading: 16, bottom: 14, trailing: 16)
+        case .systemMedium:
+            EdgeInsets(top: 16, leading: 18, bottom: 16, trailing: 18)
+        default:
+            EdgeInsets(top: 18, leading: 20, bottom: 18, trailing: 20)
         }
     }
 

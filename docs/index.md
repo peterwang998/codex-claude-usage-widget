@@ -12,9 +12,9 @@ The app is free and open source. It runs locally on your Mac, uses embedded WebK
 
 - [Privacy Policy](./privacy/)
 - [Source Code](https://github.com/peterwang998/codex-claude-usage-widget)
-- [Support development](https://buymeacoffee.com/peterwang)
+- [Buy Me a Coffee](https://buymeacoffee.com/peterwang)
 
-Optional support does not unlock features, content, updates, support priority, or any other benefit.
+AI Usage Widget is free. Optional tips do not unlock features, content, updates, support priority, or any other benefit.
 
 ## Affiliation
 

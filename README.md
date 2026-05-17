@@ -10,8 +10,10 @@ It uses embedded WebKit pages, not local token estimates. Sign in once through e
 ## Features
 
 - Menu-bar status view with minimal and detailed modes.
+- Menu-bar-only app behavior; the app does not stay in the Dock while running.
 - Floating app-owned desktop panel.
 - WidgetKit extension for macOS Desktop widgets.
+- Generated meter-style app icon.
 - Claude current session and weekly usage limit display.
 - Codex 5-hour and weekly usage limit display.
 - Optional detailed rows from each provider's usage page.
@@ -25,7 +27,7 @@ It uses embedded WebKit pages, not local token estimates. Sign in once through e
 ./scripts/build-app.sh
 ```
 
-The build script compiles the Swift source directly with `swiftc` and packages a WidgetKit extension at `Contents/PlugIns/AIUsageWidgetExtension.appex`. By default it uses ad-hoc signing for local app testing.
+The direct build script compiles the Swift source with `swiftc` and packages a local app bundle. It is useful for quick menu-bar app testing, but the system Desktop widget gallery is stricter than a normal app launch.
 
 The app bundle is written to:
 
@@ -33,28 +35,34 @@ The app bundle is written to:
 build/AI Usage Widget.app
 ```
 
+To regenerate the app icon:
+
+```sh
+env CLANG_MODULE_CACHE_PATH="$PWD/.build-cache/clang" swift scripts/generate-app-icon.swift
+```
+
 ### Signed Build For Desktop Widgets
 
-The system Desktop widget gallery needs the app and WidgetKit extension to be signed by a valid Apple signing identity. First confirm that macOS can see your certificate:
+The reliable path for macOS Desktop widgets is the Xcode project build. It lets Xcode perform the WidgetKit build steps and signs both the app and extension with your Apple Development identity.
+
+First confirm that macOS can see your certificate:
 
 ```sh
 security find-identity -v -p codesigning
 ```
 
-If it lists an `Apple Development` or `Developer ID Application` identity, build with that identity and a Team-ID-prefixed macOS app group:
+If it lists an `Apple Development` identity, install the Xcode-built app with your team ID:
 
 ```sh
-DEVELOPMENT_TEAM=TEAMID \
-SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" \
-./scripts/build-app.sh
+DEVELOPMENT_TEAM=TEAMID ./scripts/install-xcode-app.sh
 ```
 
 The script will use `TEAMID.ai-usage-widget` as the shared app group. You can also set it explicitly:
 
 ```sh
 APP_GROUP_ID=TEAMID.ai-usage-widget \
-SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" \
-./scripts/build-app.sh
+DEVELOPMENT_TEAM=TEAMID \
+./scripts/install-xcode-app.sh
 ```
 
 The `TEAMID.` app group style is macOS-only and avoids needing a provisioning profile for the shared container. For a `group.`-prefixed App Group, register it in your Apple Developer account and make sure both the app and widget extension provisioning profiles include it.
@@ -62,10 +70,16 @@ The `TEAMID.` app group style is macOS-only and avoids needing a provisioning pr
 ## Install
 
 ```sh
-./scripts/install-app.sh
+DEVELOPMENT_TEAM=TEAMID ./scripts/install-xcode-app.sh
 ```
 
-The install script replaces `/Applications/AI Usage Widget.app`, registers the WidgetKit extension with LaunchServices and PluginKit, and launches the app.
+The Xcode install script replaces `/Applications/AI Usage Widget.app`, registers the WidgetKit extension with LaunchServices and PluginKit, and launches the app. It also unregisters the temporary DerivedData copy so macOS only sees the installed app extension.
+
+For menu-bar-only testing without system Desktop widgets, you can still use:
+
+```sh
+./scripts/install-app.sh
+```
 
 After installing, use the menu-bar app's `Show Page` buttons to sign in to Claude and Codex. The main app polls the web dashboards and writes a sanitized cache for the WidgetKit extension to render. The WidgetKit extension does not scrape webpages itself.
 
@@ -73,9 +87,9 @@ If macOS already has the widget gallery open, close and reopen Edit Widgets afte
 
 ### Desktop Widget Signing
 
-The `build-app.sh` script uses ad-hoc codesigning so the menu-bar app can run locally without a developer certificate. On current macOS builds, the system Desktop widget gallery may reject or hide ad-hoc signed third-party WidgetKit extensions. Local logs show this as `amfid` reporting an ad-hoc or unknown signing chain and `chronod` purging the widget descriptor.
+The `build-app.sh` script uses ad-hoc codesigning by default so the menu-bar app can run locally without a developer certificate. On current macOS builds, the system Desktop widget gallery may reject or hide ad-hoc signed third-party WidgetKit extensions. Local logs show this as `amfid` reporting an ad-hoc or unknown signing chain and `chronod` purging the widget descriptor.
 
-For the system Desktop widget to appear reliably in Edit Widgets, build and sign the app plus extension with a valid Apple Development or Developer ID identity and a matching App Group entitlement. The app-owned floating desktop panel still works from the ad-hoc script build. After installing a signed build, launch the app once before reopening Edit Widgets.
+For the system Desktop widget to appear reliably in Edit Widgets, use `scripts/install-xcode-app.sh` with a valid Apple Development or Developer ID identity and a matching App Group entitlement. The app-owned floating desktop panel still works from the ad-hoc script build. After installing a signed build, launch the app once before reopening Edit Widgets.
 
 ## Settings
 
@@ -101,6 +115,22 @@ This is intentionally conservative for dashboard pages whose underlying usage wi
 - The desktop button in the app opens an app-owned floating panel. The system Desktop widget is provided separately by the bundled WidgetKit extension.
 - No API keys or OAuth secrets are stored by this app.
 - Normal logs avoid raw dashboard text. Launch with `AI_USAGE_WIDGET_DEBUG_LOGS=1` only when debugging parser changes, because that mode can include rendered dashboard text in the local log file.
+
+## Privacy And Tips
+
+- The public privacy policy lives at `docs/privacy.md` and is intended for GitHub Pages at `https://peterwang998.github.io/codex-claude-usage-widget/privacy/`.
+- The project landing page lives at `docs/index.md`.
+- The in-app About section links to the privacy policy, GitHub repository, and Buy Me a Coffee.
+- AI Usage Widget is free. Optional tips do not unlock features, content, updates, support priority, or any other benefit.
+- App Review notes for the optional tip link are in `APP_REVIEW_NOTES.md`.
+
+To hide the in-app Buy Me a Coffee link in direct script builds:
+
+```sh
+AI_USAGE_WIDGET_SHOW_TIP_LINK=0 ./scripts/build-app.sh
+```
+
+For Xcode script builds, use the same `AI_USAGE_WIDGET_SHOW_TIP_LINK=0` setting. In Xcode itself, override `AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG` to an empty value.
 
 ## License
 
