@@ -11,6 +11,12 @@ Small SwiftUI macOS menu-bar app for monitoring Claude and Codex usage limits fr
 
 It uses embedded WebKit pages, not local token estimates. Sign in once through each `Show Page` button; WebKit keeps those cookies for the app and later background polls reuse them.
 
+## Screenshots
+
+| Menu-bar app | Desktop widget |
+| --- | --- |
+| <img src="docs/assets/menu-bar-app.png" alt="AI Usage Widget menu-bar app showing settings and Claude/Codex usage cards" width="360"> | <img src="docs/assets/desktop-widget.png" alt="AI Usage Widget macOS Desktop widget showing Claude and Codex usage" width="460"> |
+
 ## Features
 
 - Menu-bar status view with minimal and detailed modes.
@@ -25,43 +31,34 @@ It uses embedded WebKit pages, not local token estimates. Sign in once through e
 - Percentage display normalization: native dashboard wording, percent used, or percent remaining.
 - Conservative polling so dashboard pages are not refreshed aggressively.
 
-## Build
+## Install
+
+Clone the repo first:
 
 ```sh
-./scripts/build-app.sh
+git clone https://github.com/peterwang998/codex-claude-usage-widget.git
+cd codex-claude-usage-widget
 ```
 
-The direct build script compiles the Swift source with `swiftc` and packages a local app bundle. It is useful for quick menu-bar app testing, but the system Desktop widget gallery is stricter than a normal app launch.
+### Full Install With Desktop Widget
 
-The app bundle is written to:
+Use this path if you want the app to appear in macOS Edit Widgets. It requires Xcode and a valid Apple Development signing identity.
 
-```text
-build/AI Usage Widget.app
-```
-
-To regenerate the app icon:
-
-```sh
-env CLANG_MODULE_CACHE_PATH="$PWD/.build-cache/clang" swift scripts/generate-app-icon.swift
-```
-
-### Signed Build For Desktop Widgets
-
-The reliable path for macOS Desktop widgets is the Xcode project build. It lets Xcode perform the WidgetKit build steps and signs both the app and extension with your Apple Development identity.
-
-First confirm that macOS can see your certificate:
+Confirm that macOS can see your signing identity:
 
 ```sh
 security find-identity -v -p codesigning
 ```
 
-If it lists an `Apple Development` identity, install the Xcode-built app with your team ID:
+If the command lists an `Apple Development` identity, install the Xcode-built app with your Apple Developer Team ID:
 
 ```sh
 DEVELOPMENT_TEAM=TEAMID ./scripts/install-xcode-app.sh
 ```
 
-The script will use `TEAMID.ai-usage-widget` as the shared app group. You can also set it explicitly:
+Replace `TEAMID` with your Apple Developer Team ID. The install script builds the Xcode project, signs the app and widget extension, replaces `/Applications/AI Usage Widget.app`, registers the WidgetKit extension, and launches the app.
+
+By default, the script uses `TEAMID.ai-usage-widget` as the shared app group. You can also set it explicitly:
 
 ```sh
 APP_GROUP_ID=TEAMID.ai-usage-widget \
@@ -71,29 +68,50 @@ DEVELOPMENT_TEAM=TEAMID \
 
 The `TEAMID.` app group style is macOS-only and avoids needing a provisioning profile for the shared container. For a `group.`-prefixed App Group, register it in your Apple Developer account and make sure both the app and widget extension provisioning profiles include it.
 
-## Install
+### Quick Local Install
 
-```sh
-DEVELOPMENT_TEAM=TEAMID ./scripts/install-xcode-app.sh
-```
-
-The Xcode install script replaces `/Applications/AI Usage Widget.app`, registers the WidgetKit extension with LaunchServices and PluginKit, and launches the app. It also unregisters the temporary DerivedData copy so macOS only sees the installed app extension.
-
-For menu-bar-only testing without system Desktop widgets, you can still use:
+Use this path if you only need the menu-bar app and floating desktop panel. It does not require an Apple Developer certificate.
 
 ```sh
 ./scripts/install-app.sh
 ```
 
-After installing, use the menu-bar app's `Show Page` buttons to sign in to Claude and Codex. The main app polls the web dashboards and writes a sanitized cache for the WidgetKit extension to render. The WidgetKit extension does not scrape webpages itself.
+This direct install uses ad-hoc signing. The app can run locally, but the system Desktop widget may not appear in Edit Widgets on current macOS builds.
 
-If macOS already has the widget gallery open, close and reopen Edit Widgets after installing.
+### After Installing
 
-### Desktop Widget Signing
+- Open AI Usage Widget from the menu bar.
+- Use each provider's `Show Page` button to sign in to Claude and Codex once.
+- Use `Refresh` after signing in, or wait for the next automatic poll.
+- If Edit Widgets was already open, close and reopen it after installing the signed Xcode build.
 
-The `build-app.sh` script uses ad-hoc codesigning by default so the menu-bar app can run locally without a developer certificate. On current macOS builds, the system Desktop widget gallery may reject or hide ad-hoc signed third-party WidgetKit extensions. Local logs show this as `amfid` reporting an ad-hoc or unknown signing chain and `chronod` purging the widget descriptor.
+The main app polls the web dashboards and writes a sanitized cache for the WidgetKit extension to render. The WidgetKit extension does not scrape webpages itself.
 
-For the system Desktop widget to appear reliably in Edit Widgets, use `scripts/install-xcode-app.sh` with a valid Apple Development or Developer ID identity and a matching App Group entitlement. The app-owned floating desktop panel still works from the ad-hoc script build. After installing a signed build, launch the app once before reopening Edit Widgets.
+## Build
+
+To build a local ad-hoc app bundle without installing it:
+
+```sh
+./scripts/build-app.sh
+```
+
+The app bundle is written to:
+
+```text
+build/AI Usage Widget.app
+```
+
+To build through Xcode without installing:
+
+```sh
+DEVELOPMENT_TEAM=TEAMID ./scripts/build-xcode-app.sh
+```
+
+To regenerate the app icon:
+
+```sh
+env CLANG_MODULE_CACHE_PATH="$PWD/.build-cache/clang" swift scripts/generate-app-icon.swift
+```
 
 ## Settings
 
