@@ -325,6 +325,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				AI_USAGE_WIDGET_APP_GROUP_ID = "$(DEVELOPMENT_TEAM).ai-usage-widget";
+				AI_USAGE_WIDGET_APP_BUNDLE_ID = "local.peter.ai-usage-widget";
+				AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID).widget";
 				AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG = "-D AI_USAGE_WIDGET_SHOW_TIP_LINK";
 				CODE_SIGN_ENTITLEMENTS = Resources/AIUsageWidgetApp.entitlements;
 				CODE_SIGN_IDENTITY = "-";
@@ -345,7 +347,7 @@
 					"$(inherited)",
 					"$(AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "local.peter.ai-usage-widget";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID)";
 				PRODUCT_NAME = "AI Usage Widget";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -356,6 +358,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				AI_USAGE_WIDGET_APP_GROUP_ID = "$(DEVELOPMENT_TEAM).ai-usage-widget";
+				AI_USAGE_WIDGET_APP_BUNDLE_ID = "local.peter.ai-usage-widget";
+				AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID).widget";
 				AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG = "-D AI_USAGE_WIDGET_SHOW_TIP_LINK";
 				CODE_SIGN_ENTITLEMENTS = Resources/AIUsageWidgetApp.entitlements;
 				CODE_SIGN_IDENTITY = "-";
@@ -376,7 +380,7 @@
 					"$(inherited)",
 					"$(AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "local.peter.ai-usage-widget";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID)";
 				PRODUCT_NAME = "AI Usage Widget";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -387,6 +391,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				AI_USAGE_WIDGET_APP_GROUP_ID = "$(DEVELOPMENT_TEAM).ai-usage-widget";
+				AI_USAGE_WIDGET_APP_BUNDLE_ID = "local.peter.ai-usage-widget";
+				AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID).widget";
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/AIUsageWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "-";
@@ -403,7 +409,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "local.peter.ai-usage-widget.widget";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID)";
 				PRODUCT_NAME = AIUsageWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
@@ -415,6 +421,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				AI_USAGE_WIDGET_APP_GROUP_ID = "$(DEVELOPMENT_TEAM).ai-usage-widget";
+				AI_USAGE_WIDGET_APP_BUNDLE_ID = "local.peter.ai-usage-widget";
+				AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID = "$(AI_USAGE_WIDGET_APP_BUNDLE_ID).widget";
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/AIUsageWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "-";
@@ -431,7 +439,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "local.peter.ai-usage-widget.widget";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID)";
 				PRODUCT_NAME = AIUsageWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;

@@ -107,6 +107,14 @@ To build through Xcode without installing:
 DEVELOPMENT_TEAM=TEAMID ./scripts/build-xcode-app.sh
 ```
 
+To create a Release archive for App Store Connect after registering the production identifiers:
+
+```sh
+DEVELOPMENT_TEAM=TEAMID ./scripts/archive-app-store.sh
+```
+
+See `APP_STORE_SUBMISSION.md` for the full submission checklist.
+
 To regenerate the app icon:
 
 ```sh
