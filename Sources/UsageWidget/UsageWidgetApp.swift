@@ -35,6 +35,7 @@ enum AppInfo {
 
 enum AppLog {
     static let isDebugEnabled = ProcessInfo.processInfo.environment["AI_USAGE_WIDGET_DEBUG_LOGS"] == "1"
+    private static let maxLogBytes = 1_000_000
 
     static let url: URL = {
         let appGroupBase = FileManager.default
@@ -62,9 +63,7 @@ enum AppLog {
             return
         }
 
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
+        prepareLogFile(incomingByteCount: data.count, timestamp: timestamp)
 
         do {
             let handle = try FileHandle(forWritingTo: url)
@@ -78,6 +77,24 @@ enum AppLog {
 
     static func section(_ title: String, body: String) {
         write("---- \(title) ----\n\(body)\n---- end \(title) ----")
+    }
+
+    private static func prepareLogFile(incomingByteCount: Int, timestamp: String) {
+        let fileManager = FileManager.default
+
+        if !fileManager.fileExists(atPath: url.path) {
+            fileManager.createFile(atPath: url.path, contents: nil)
+            return
+        }
+
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        let fileSize = (attributes?[.size] as? NSNumber)?.intValue ?? 0
+        guard fileSize + incomingByteCount > maxLogBytes else {
+            return
+        }
+
+        let notice = "[\(timestamp)] Log trimmed after exceeding \(maxLogBytes) bytes.\n"
+        try? notice.write(to: url, atomically: true, encoding: .utf8)
     }
 }
 
@@ -481,6 +498,41 @@ private func formatPercentDisplay(_ percent: Double) -> String {
     return String(format: "%.1f%%", percent)
 }
 
+enum WebNavigationPolicy {
+    private static let claudeHostSuffixes = [
+        "claude.ai",
+        "anthropic.com",
+        "accounts.google.com",
+        "appleid.apple.com"
+    ]
+    private static let codexHostSuffixes = [
+        "chatgpt.com",
+        "openai.com",
+        "auth0.openai.com",
+        "accounts.google.com",
+        "appleid.apple.com"
+    ]
+
+    static func isAllowed(_ url: URL, for service: UsageService) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else {
+            return false
+        }
+
+        if scheme == "about" {
+            return true
+        }
+
+        guard scheme == "https", let host = url.host?.lowercased() else {
+            return false
+        }
+
+        let suffixes = service == .claude ? claudeHostSuffixes : codexHostSuffixes
+        return suffixes.contains { suffix in
+            host == suffix || host.hasSuffix(".\(suffix)")
+        }
+    }
+}
+
 struct DashboardSnapshot: Equatable {
     var service: UsageService
     var status: DashboardStatus = .idle
@@ -490,7 +542,6 @@ struct DashboardSnapshot: Equatable {
     var nextRefresh: Date?
     var loadedURL: String?
     var message: String?
-    var rawSample: String?
 
     var shortBadge: String? {
         guard status == .ready || status == .noUsageFound else {
@@ -605,6 +656,29 @@ final class DashboardPoller: NSObject, WKNavigationDelegate {
         }
     }
 
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard navigationAction.targetFrame?.isMainFrame != false,
+              let requestedURL = navigationAction.request.url
+        else {
+            decisionHandler(.allow)
+            return
+        }
+
+        guard WebNavigationPolicy.isAllowed(requestedURL, for: service) else {
+            let host = requestedURL.host ?? requestedURL.absoluteString
+            AppLog.write("\(service.displayName) blocked unexpected navigation to \(host)")
+            markError("Blocked unexpected navigation to \(host).")
+            decisionHandler(.cancel)
+            return
+        }
+
+        decisionHandler(.allow)
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         AppLog.write("\(service.displayName) navigation failed: \(error.localizedDescription)")
         markError(error.localizedDescription)
@@ -692,10 +766,6 @@ final class DashboardPoller: NSObject, WKNavigationDelegate {
             snapshot = parsed
             snapshot.nextRefresh = Date().addingTimeInterval(normalRefreshInterval)
             onSnapshot?(snapshot)
-
-            if parsed.status == .error {
-                scheduleErrorRetry()
-            }
         } catch {
             AppLog.write("\(service.displayName) scrape failed: \(error.localizedDescription)")
             markError(error.localizedDescription)
@@ -799,8 +869,6 @@ enum UsageParser {
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-
-        snapshot.rawSample = lines.prefix(14).joined(separator: "\n")
 
         if looksUnauthenticated(service: service, url: page.url, lines: lines) {
             snapshot.status = .loginRequired
@@ -1579,6 +1647,7 @@ final class LoginWindowController: NSObject, WKNavigationDelegate {
 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
 
         let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 980, height: 720), configuration: configuration)
         webView.navigationDelegate = self
@@ -1597,6 +1666,29 @@ final class LoginWindowController: NSObject, WKNavigationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard navigationAction.targetFrame?.isMainFrame != false,
+              let requestedURL = navigationAction.request.url,
+              let service = servicesByWebView[ObjectIdentifier(webView)]
+        else {
+            decisionHandler(.allow)
+            return
+        }
+
+        guard WebNavigationPolicy.isAllowed(requestedURL, for: service) else {
+            let host = requestedURL.host ?? requestedURL.absoluteString
+            AppLog.write("\(service.displayName) login window blocked unexpected navigation to \(host)")
+            decisionHandler(.cancel)
+            return
+        }
+
+        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -2028,12 +2120,6 @@ struct ServiceCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
-            if let rawSample = snapshot.rawSample, snapshot.status == .noUsageFound {
-                Text(rawSample)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(4)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

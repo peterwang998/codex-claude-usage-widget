@@ -93,7 +93,7 @@
     <p>The widget does not scrape webpages. It reads a local cached summary written by the main app through the app group container.</p>
 
     <h2>Logs</h2>
-    <p>Normal logs are stored locally and are intended for troubleshooting app behavior. They avoid raw dashboard text. Debug logging, if enabled manually in a development build, may include rendered dashboard text and should not be used when sharing logs publicly.</p>
+    <p>Normal logs are stored locally and are intended for troubleshooting app behavior. They avoid raw dashboard text. Debug logging is off by default, but if it is enabled manually with <code>AI_USAGE_WIDGET_DEBUG_LOGS=1</code>, it may include rendered dashboard text and should not be used when sharing logs publicly.</p>
 
     <h2>Data Deletion</h2>
     <p>You can remove locally stored app data by quitting AI Usage Widget and deleting the app's macOS container and app group container. You can also sign out of the embedded dashboard pages or remove the app to stop future local polling.</p>

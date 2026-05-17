@@ -29,7 +29,7 @@ The widget does not scrape webpages. It reads a local cached summary written by 
 
 ## Logs
 
-Normal logs are stored locally and are intended for troubleshooting app behavior. They avoid raw dashboard text. Debug logging, if enabled manually in a development build, may include rendered dashboard text and should not be used when sharing logs publicly.
+Normal logs are stored locally and are intended for troubleshooting app behavior. They avoid raw dashboard text. Debug logging is off by default, but if it is enabled manually with `AI_USAGE_WIDGET_DEBUG_LOGS=1`, it may include rendered dashboard text and should not be used when sharing logs publicly.
 
 ## Data Deletion
 

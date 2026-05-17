@@ -9,6 +9,8 @@ EXTENSION_NAME="AIUsageWidgetExtension"
 EXTENSION_DIR="$APP_DIR/Contents/PlugIns/$EXTENSION_NAME.appex"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+HOST_ARCH="$(uname -m)"
+SWIFT_TARGET="${SWIFT_TARGET:-$HOST_ARCH-apple-macosx14.0}"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-local.peter.ai-usage-widget}"
 EXTENSION_BUNDLE_ID="${EXTENSION_BUNDLE_ID:-$APP_BUNDLE_ID.widget}"
 APP_GROUP_ID="${APP_GROUP_ID:-${DEVELOPMENT_TEAM:-}.ai-usage-widget}"
@@ -30,7 +32,7 @@ mkdir -p "$ROOT/build-bin" "$ROOT/.build-cache/clang" "$ENTITLEMENTS_DIR"
 env CLANG_MODULE_CACHE_PATH="$ROOT/.build-cache/clang" \
   swiftc \
   -parse-as-library \
-  -target arm64-apple-macosx14.0 \
+  -target "$SWIFT_TARGET" \
   -sdk "$SDK_PATH" \
   -framework SwiftUI \
   -framework WebKit \
@@ -46,7 +48,7 @@ env CLANG_MODULE_CACHE_PATH="$ROOT/.build-cache/clang" \
   swiftc \
   -parse-as-library \
   -application-extension \
-  -target arm64-apple-macosx14.0 \
+  -target "$SWIFT_TARGET" \
   -sdk "$SDK_PATH" \
   -framework SwiftUI \
   -framework WidgetKit \
