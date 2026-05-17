@@ -1,5 +1,9 @@
 # AI Usage Widget
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Source Code](https://img.shields.io/badge/Source-GitHub-24292f?logo=github&logoColor=white)](https://github.com/peterwang998/codex-claude-usage-widget)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-optional%20tip-ffdd00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/peterwang)
+
 Small SwiftUI macOS menu-bar app for monitoring Claude and Codex usage limits from the real web dashboards:
 
 - Claude: `https://claude.ai/settings/usage`
