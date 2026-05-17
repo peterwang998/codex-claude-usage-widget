@@ -342,7 +342,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				OTHER_SWIFT_FLAGS = (
 					"$(inherited)",
 					"$(AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG)",
@@ -375,7 +375,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				OTHER_SWIFT_FLAGS = (
 					"$(inherited)",
 					"$(AI_USAGE_WIDGET_TIP_LINK_SWIFT_FLAG)",
@@ -408,7 +408,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID)";
 				PRODUCT_NAME = AIUsageWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -438,7 +438,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(AI_USAGE_WIDGET_EXTENSION_BUNDLE_ID)";
 				PRODUCT_NAME = AIUsageWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";

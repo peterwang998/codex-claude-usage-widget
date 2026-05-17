@@ -8,7 +8,7 @@ This file tracks the App Store submission path for AI Usage Widget.
 - App bundle ID: `com.peterwang.aiusagewidget`
 - Widget extension bundle ID: `com.peterwang.aiusagewidget.widget`
 - App group ID: `group.com.peterwang.aiusagewidget`
-- Version: `0.1.0`
+- Version: `1.0`
 - Build: `1`
 - Privacy policy URL: `https://peterwang998.github.io/codex-claude-usage-widget/privacy/`
 - Support URL: `https://github.com/peterwang998/codex-claude-usage-widget/issues`

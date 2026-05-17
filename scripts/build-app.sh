@@ -11,6 +11,8 @@ SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 HOST_ARCH="$(uname -m)"
 SWIFT_TARGET="${SWIFT_TARGET:-$HOST_ARCH-apple-macosx14.0}"
+MARKETING_VERSION="${MARKETING_VERSION:-1.0}"
+CURRENT_PROJECT_VERSION="${CURRENT_PROJECT_VERSION:-1}"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-local.peter.ai-usage-widget}"
 EXTENSION_BUNDLE_ID="${EXTENSION_BUNDLE_ID:-$APP_BUNDLE_ID.widget}"
 APP_GROUP_ID="${APP_GROUP_ID:-${DEVELOPMENT_TEAM:-}.ai-usage-widget}"
@@ -87,9 +89,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>$MARKETING_VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$CURRENT_PROJECT_VERSION</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>LSApplicationCategoryType</key>
@@ -125,9 +127,9 @@ cat > "$EXTENSION_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>$MARKETING_VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$CURRENT_PROJECT_VERSION</string>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>
